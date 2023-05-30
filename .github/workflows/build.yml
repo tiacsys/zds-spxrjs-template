@@ -1,0 +1,73 @@
+name: Build
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: texlive/texlive:latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          path: workspace/zds-spxrjs-template
+
+      - name: System Dependencies
+        working-directory: workspace/zds-spxrjs-template
+        run: |
+          apt update
+          apt full-upgrade --yes
+          apt install --yes $(cat dpkg-tools-reqirements.txt)
+          # apt install --yes $(cat dpkg-latex-reqirements.txt)
+          apt install --yes $(cat dpkg-nodejs-reqirements.txt)
+          apt install --yes $(cat dpkg-python3-reqirements.txt)
+          apt install --yes $(cat dpkg-spelling-reqirements.txt)
+
+      - name: Python Environment
+        working-directory: workspace
+        run: |
+          python3 -m venv --clear --copies .venv
+          . .venv/bin/activate
+          pip3 install --upgrade pip setuptools
+          pip3 install --upgrade poetry west
+
+      - name: West Workspace
+        working-directory: workspace
+        run: |
+          . .venv/bin/activate
+          west init -l zds-spxrjs-template
+          west update
+
+      - name: Poetry Install
+        working-directory: workspace/zds-spxrjs-template
+        run: |
+          . ../.venv/bin/activate
+          pip3 install --use-pep517 --isolated --no-cache 'sphinxcontrib-asciinema==0.3.5'
+          poetry install --no-root
+
+      - name: Node Environment
+        working-directory: workspace/zds-spxrjs-template
+        run: |
+          . ../.venv/bin/activate
+          nodeenv --node=lts --python-virtualenv --prebuilt --requirements=nodeenv-reqirements.txt
+
+      - name: Lint
+        working-directory: workspace/zds-spxrjs-template
+        run: |
+          . ../.venv/bin/activate
+          make SPHINXTAGS="-t html" spelling
+          make clean
+          make SPHINXTAGS="-t revealjs" spelling
+          make clean
+
+      - name: Build
+        working-directory: workspace/zds-spxrjs-template
+        run: |
+          . ../.venv/bin/activate
+          make revealjs
+          make revealjspdf
+
+      - name: Archive
+        uses: actions/upload-artifact@v3
+        with:
+          path: workspace/zds-spxrjs-template/build/revealjs

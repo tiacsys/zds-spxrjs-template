@@ -2,10 +2,6 @@ name: Build
 
 on:
   workflow_dispatch: # And manually on button click
-  pull_request:
-    types: [opened, synchronize, reopened]
-    branches:
-      - main
   push:
     tags:
       - 'v*'
@@ -17,9 +13,7 @@ defaults:
     shell: bash
 
 jobs:
-
   build:
-
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/tiacsys/readourdocs-docker-images:main
@@ -29,6 +23,8 @@ jobs:
         HOME: /home/docs
 
     steps:
+      - name: Slug
+        uses: rlespinasse/github-slug-action@v4
 
       - name: Checkout
         uses: actions/checkout@v3
@@ -80,32 +76,12 @@ jobs:
       - name: Archive
         working-directory: build
         run: |
-          # synopsys: publish2 <catalog> <version> <archive>
-          #   <catalog> := {development|approved}
-          #   <version> := {latest|<branch>}
+          # synopsys: publish2 docroot <slug> <archive>
           #   <archive> := doc_build_<GITHUB_RUN_ID_from_doc-build>.tgz
           mkdir doc && cd doc
           archive="doc_build_${GITHUB_RUN_ID}.tgz"
           tar -C ../revealjs -zcf ${archive} .
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            # basename will work for both branches and tags
-            branch=$(basename "${{ github.ref }}")
-            echo "publish2 preview REF-${branch} ${archive}" > "monitor_${GITHUB_RUN_ID}.txt"
-          else
-            if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-              echo "publish2 development PR-${{ github.event.number }} ${archive}" > \
-                   "monitor_${GITHUB_RUN_ID}.txt"
-              echo "${{ github.event.number }}" > pr.txt
-            else
-              # basename will work for both branches and tags
-              branch=$(basename "${{ github.ref }}")
-              if [[ "${branch}" == "main" ]]; then
-                echo "publish2 approved latest ${archive}" > "monitor_${GITHUB_RUN_ID}.txt"
-              else
-                echo "publish2 approved ${branch} ${archive}" > "monitor_${GITHUB_RUN_ID}.txt"
-              fi
-            fi
-          fi
+          echo "publish2 docroot ${GITHUB_REPOSITORY_NAME_PART_SLUG} ${archive}" > "monitor_${GITHUB_RUN_ID}.txt"
 
       - name: Upload
         uses: actions/upload-artifact@v3

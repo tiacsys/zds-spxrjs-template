@@ -270,9 +270,9 @@ else:
 
 exclude_patterns = [
     '**/.gitkeepdir',
+    '**/*.drawio',
+    '**/*.url',
     'fonts*',
-    'exercises/toyproject*'
-
 ]
 
 # Exclude pattern when read-the-docs not envolved
